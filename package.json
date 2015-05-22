@@ -1,0 +1,28 @@
+{
+  "name": "tlk-state-machine",
+  "version": "1.0.0",
+  "description": "Simple state machine generator with light and clear syntax.",
+  "main": "tlk-state-machine.js",
+  "scripts": {
+    "test": "node node_modules/jasmine/bin/jasmine.js",
+    "debug": "node --debug-brk node_modules/jasmine/bin/jasmine.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tolokoban/tlk-state-machine.git"
+  },
+  "keywords": [
+    "tolokoban",
+    "state",
+    "machine"
+  ],
+  "author": "Tolokoban",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/tolokoban/tlk-state-machine/issues"
+  },
+  "homepage": "https://github.com/tolokoban/tlk-state-machine",
+  "dependencies": {
+    "jasmine": "^2.3.1"
+  }
+}

@@ -1,0 +1,15 @@
+// Given the center of the sphere, this function set its current radius and base color.
+Sphere setRadiusAndColor(Sphere sphere) {
+  float colorX = fract(abs(sphere.center.z * 13.954112));
+  vec4 g = texture2D(colors, vec2(colorX, 0.5));
+  float r = g.y + g.x * time / 900.0;
+  g = texture2D(colors, vec2(fract(r), 0.5));
+  float p = g.w;
+  sphere.radius = RADIUS * (1.0 - p * 0.5);
+  vec3 center = sphere.center / SPARSITY;
+  colorX = fract(abs(center.x * 0.139026 + center.y * 0.179584 + center.z * 0.841752));
+  sphere.color = texture2D(colors, vec2(colorX, 0.5));
+  sphere.shift = (vec3(sphere.color) + vec3(-0.5)) * (HALF_SPARSITY - RADIUS - 4.0);
+  return sphere;
+}
+

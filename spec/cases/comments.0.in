@@ -1,0 +1,252 @@
+precision lowp float;
+
+#define RADIUS 50.0
+#define RADIUS_2 (RADIUS * RADIUS)
+#define SPARSITY 200.0
+#define GROUND (-SPARSITY * 1.5)
+#define HALF_SPARSITY (SPARSITY * 0.5)
+#define EYE 600.0
+#define DEPTH 10
+#define BOUNCES 2
+
+const float PI = 3.14159265357;
+const vec3 back = vec3(0.0, 0.0, 0.0);
+const vec4 BLACK = vec4(0.0, 0.0, 0.0, 1.0);
+const vec4 WHITE = vec4(1.0, 1.0, 1.0, 1.0);
+
+varying lowp vec3 vPoint;
+uniform highp float X;
+uniform highp float Y;
+uniform highp float Z;
+uniform highp float time;
+uniform sampler2D colors;
+
+struct Sphere {
+  int   found;
+  vec3  center;
+  vec3  shift;
+  vec3  impact;
+  float radius;
+  vec4  color;
+};
+
+// Given the center of the sphere, this function set its current radius and base color.
+Sphere setRadiusAndColor(Sphere sphere) {
+  float colorX = fract(abs(sphere.center.z * 13.954112));
+  vec4 g = texture2D(colors, vec2(colorX, 0.5));
+  float r = g.y + g.x * time / 900.0;
+  g = texture2D(colors, vec2(fract(r), 0.5));
+  float p = g.w;
+  sphere.radius = RADIUS * (1.0 - p * 0.5);
+  vec3 center = sphere.center / SPARSITY;
+  colorX = fract(abs(center.x * 0.139026 + center.y * 0.179584 + center.z * 0.841752));
+  sphere.color = texture2D(colors, vec2(colorX, 0.5));
+  sphere.shift = (vec3(sphere.color) + vec3(-0.5)) * (HALF_SPARSITY - RADIUS - 4.0);
+  return sphere;
+}
+
+Sphere hitTestGround(vec3 point, vec3 vector, Sphere sphere) {
+  if (sphere.found != 0) return sphere;
+  if (vector.y < 0.0) {
+    sphere.found = 2;
+    sphere.impact = point + vector * (GROUND - point.y) / vector.y;
+  }
+  return sphere;
+}
+
+// Find the hit point of a ray with the environment.
+// The ray can hit the sphere passed as argument, or the checkboard ground.
+Sphere hitTest(vec3 point, vec3 vector, Sphere sphere) {
+  if (sphere.center.y > 2.0 * SPARSITY) {
+    // Nothing more above this limit.
+    sphere.found = 0;
+    return sphere;
+  }
+  // Compute ray and sphere intersection.
+  // https://en.wikipedia.org/wiki/Line%E2%80%93sphere_intersection
+  vec3 v = normalize(vector);
+  vec3 o = point;
+  vec3 c = sphere.center + sphere.shift;
+  float r = sphere.radius;
+  vec3 co = o - c;
+  float tmp = dot(v, co);
+  float delta = tmp * tmp - dot(co, co) + r * r;
+  if (delta < 0.0) {
+    sphere.found = 0;
+    return sphere;
+  }
+  float d = - tmp - sqrt(delta);
+  sphere.impact = o + v * d;
+  sphere.found = 1;
+  return sphere;
+}
+
+// Compute material color.
+Sphere setMaterial(Sphere sphere, vec3 origin) {
+  if (sphere.found == 2) {
+    // Checkboard ground.
+    vec3 poi = sphere.impact;
+    float x = abs(fract(poi.x / HALF_SPARSITY));
+    float y = abs(fract(poi.y / HALF_SPARSITY));
+    float z = abs(fract(poi.z / HALF_SPARSITY));
+    vec3 color;
+    if (x < 0.5 ^^ y < 0.5 ^^ z < 0.5) {
+      color = vec3(0.5);
+    } else {
+      color = vec3(1.0);
+    }
+    sphere.color = vec4(color *
+                        (1.0 - min(1.0, (poi.z - Z) / (float(DEPTH) * SPARSITY))),
+                        1.0);
+  } else {
+    // Sphere.
+    vec4 c0 = sphere.color * 0.1 + BLACK * 0.9;
+    vec4 c1 = sphere.color * 0.8 + WHITE * 0.2;
+    float r = (dot((sphere.impact - sphere.center) / sphere.radius, vec3(0.0, 0.0, -1.0)) + 1.0) * 0.5;
+    sphere.color = c1 * r + c0 * (1.0 - r);
+    float d = distance(origin, sphere.impact) / (SPARSITY * float(DEPTH));
+    sphere.color *= 1.0 - d;
+  }
+  return sphere;
+}
+
+vec3 getMainDirection(vec3 point, vec3 vector) {
+  // Find in which direction the vector points.
+  // There are 6 possible directions : X1, X2, Y1, Y2, Z1 and Z2.
+  float x = abs(vector.x);
+  float y = abs(vector.y);
+  float z = abs(vector.z);
+
+  if (x > y) {
+    // x > y
+    if (x > z) {
+      // x is the greatest.
+      return normalize(vec3(vector.x, 0.0, 0.0));
+    } else {
+      // z is the greatest.
+      return normalize(vec3(0.0, 0.0, vector.z));
+    }
+  } else {
+    // y > x
+    if (y > z) {
+      // y is the greatest.
+      return normalize(vec3(0.0, vector.y, 0.0));
+    } else {
+      // z is the greatest.
+      return normalize(vec3(0.0, 0.0, vector.z));
+    }
+  }
+}
+
+Sphere findSphere(vec3 point, vec3 vector) {
+  vec4 color;
+  Sphere sphere;
+  int found = 0;
+  for (int bounce = 0 ; bounce < BOUNCES ; bounce++) {
+    vec3 mainVect = getMainDirection(point, vector);
+    if (mainVect.x != 0.0) {
+      if (mainVect.x > 0.0) {
+        sphere.center.x = SPARSITY * floor(point.x / SPARSITY) + SPARSITY;
+      } else {
+        sphere.center.x = SPARSITY * ceil(point.x / SPARSITY) - SPARSITY;
+      }
+      for (int loop = 0 ; loop < DEPTH ; loop++) {
+        float coeff = (sphere.center.x - point.x) / vector.x;
+        float z = point.z + vector.z * coeff + HALF_SPARSITY;
+        float y = point.y + vector.y * coeff + HALF_SPARSITY;
+        sphere.center.z = SPARSITY * floor(z / SPARSITY);
+        sphere.center.y = SPARSITY * floor(y / SPARSITY);
+        sphere = setRadiusAndColor(sphere);
+        sphere = hitTest(point, vector, sphere);
+        if (sphere.found != 0) {
+          break;
+        }
+        sphere.center += mainVect * SPARSITY;
+      }
+    }
+    else if (mainVect.y != 0.0) {
+      if (mainVect.y > 0.0) {
+        sphere.center.y = SPARSITY * floor(point.y / SPARSITY) + SPARSITY;
+      } else {
+        sphere.center.y = SPARSITY * ceil(point.y / SPARSITY) - SPARSITY;
+      }
+      for (int loop = 0 ; loop < DEPTH ; loop++) {
+        float coeff = (sphere.center.y - point.y) / vector.y;
+        float x = point.x + vector.x * coeff + HALF_SPARSITY;
+        float z = point.z + vector.z * coeff + HALF_SPARSITY;
+        sphere.center.x = SPARSITY * floor(x / SPARSITY);
+        sphere.center.z = SPARSITY * floor(z / SPARSITY);
+        sphere = setRadiusAndColor(sphere);
+        sphere = hitTest(point, vector, sphere);
+        if (sphere.found != 0) {
+          break;
+        }
+        sphere.center += mainVect * SPARSITY;
+      }
+    }
+    else if (mainVect.z != 0.0) {
+      if (mainVect.z > 0.0) {
+        sphere.center.z = SPARSITY * floor(point.z / SPARSITY) + SPARSITY;
+      } else {
+        sphere.center.z = SPARSITY * ceil(point.z / SPARSITY) - SPARSITY;
+      }
+      for (int loop = 0 ; loop < DEPTH ; loop++) {
+        float coeff = (sphere.center.z - point.z) / vector.z;
+        float x = point.x + vector.x * coeff + HALF_SPARSITY;
+        float y = point.y + vector.y * coeff + HALF_SPARSITY;
+        sphere.center.x = SPARSITY * floor(x / SPARSITY);
+        sphere.center.y = SPARSITY * floor(y / SPARSITY);
+        sphere = setRadiusAndColor(sphere);
+        sphere = hitTest(point, vector, sphere);
+        if (sphere.found != 0) {
+          break;
+        }
+        sphere.center += mainVect * SPARSITY;
+      }
+    }
+
+    sphere = hitTestGround(point, vector, sphere);
+    sphere = setMaterial(sphere, point);
+    
+    if (bounce == 0) {
+      // First ray shooting.
+      found = sphere.found;
+      if (sphere.found == 0) {
+        color = BLACK;
+        break;
+      }
+      color = sphere.color;
+      if (sphere.found != 2) {
+        break;
+      }
+
+      point = sphere.impact;
+      vector.y = -vector.y;
+      //vector = reflect(vector, sphere.impact - sphere.center);
+    } else {
+      // Looking for the last ray bounce.
+      if (sphere.found != 0) {
+        color = color * 0.5 + sphere.color * 0.5;
+      } else {
+        color = vec4(1.0, 0.5, 0.0, 1.0);
+      }
+      break;
+    }
+  }
+  sphere.found = found;
+  sphere.color = color;
+  sphere.color.w = 1.0;
+  return sphere;
+}
+
+
+void main(void) {
+  vec3 point = vec3(X, Y, Z);
+  vec3 vector = vec3(vPoint.x, vPoint.y, EYE);
+  Sphere sphere = findSphere(point, vector);
+  if (sphere.found != 0) {
+    gl_FragColor = sphere.color;
+  } else {
+    gl_FragColor = vec4(back, 1.0);
+  }
+}

@@ -1,0 +1,71 @@
+/**
+ * @param `rules` {object}: The key is the name of the state, 
+ * the value is a function with the curent char as argument.
+ * The `this` points on the context which has the following attributes:
+ *   * `source`: source code.
+ *   * `index`: current position of the cursor in the source.
+ *   * `state`: name of the current state.
+ *   * `vars`: private variables.
+ */
+exports.run = function(rules, source, vars) {
+  var ctx = {source: source, index: 0, state: null, vars: vars || {}};
+  var len = source.length;
+  var c, f;
+  for (var state in rules) {
+    if (!ctx.state) ctx.state = state;
+    rules[state] = wrapRule(rules, state);
+  }
+  while (ctx.index >= 0 && ctx.index < len) {
+    c = source.charAt(ctx.index);
+    f = rules[ctx.state];
+    f.call(ctx, c);
+  }
+  return ctx;
+};
+
+
+function wrapRule(rules, state) {
+  var f = rules[state];
+  if (Array.isArray(f)) {
+    var arr = f;
+    arr.forEach(
+      function(item, idx) {
+        if (!Array.isArray(item)) {
+          if (typeof item === 'string') {
+            arr[idx] = [null, item];
+          } else {
+            arr[idx] = [null, null, item];
+          }
+        }
+      }
+    );
+
+    return function(c) {
+      var k, item, ref, target, slot, match;
+      for (k = 0 ; k < arr.length ; k++) {
+        item = arr[k];
+        ref = item[0];
+        target = item[1];
+        slot = item[2];
+        match = true;
+        if (ref && ref.length > 0) {
+          match = (ref.indexOf(c) > -1);
+        }
+        if (match) {
+          if (target && typeof target === 'string') {
+            this.state = target;
+          }
+          if (slot && typeof slot === 'function') {
+            slot.call(this, c);
+          }
+          this.index++;
+          return;
+        }
+      }
+      // Nothing matches. We skip the char and stay in the same state.
+      this.index++;
+    };
+  } else {
+    return f;
+  }
+}
