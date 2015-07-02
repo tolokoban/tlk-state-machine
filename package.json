@@ -1,6 +1,6 @@
 {
   "name": "tlk-state-machine",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Simple state machine generator with light and clear syntax.",
   "main": "tlk-state-machine.js",
   "scripts": {
@@ -11,7 +11,11 @@
     "type": "git",
     "url": "https://github.com/tolokoban/tlk-state-machine.git"
   },
-  "keywords": ["tolokoban", "state", "machine"],
+  "keywords": [
+    "tolokoban",
+    "state",
+    "machine"
+  ],
   "author": "Tolokoban",
   "license": "GPL",
   "bugs": {
