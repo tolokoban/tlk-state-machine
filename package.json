@@ -1,6 +1,6 @@
 {
   "name": "tlk-state-machine",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Simple state machine generator with light and clear syntax.",
   "main": "src/tlk-state-machine.js",
   "scripts": {
