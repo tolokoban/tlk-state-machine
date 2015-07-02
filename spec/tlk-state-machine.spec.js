@@ -24,8 +24,52 @@ function extract(arr, idx) {
   return out;
 }
 
-
 describe("State Machine", function() {
+  describe("HTML parsing", function() {
+    it("should build tree from HTML source", function() {
+      var Tree = {
+        VOID: 0,
+        TAG: 1,
+        TEXT: 2,
+        COMMENT: 3,
+        DIRECTIVE: 4,
+        CDATA: 5,
+        ENTITY: 6
+      };
+
+      function pushText() {
+        var cursor = this.vars.cursor || 0;
+        var text = this.source.substr(cursor, this.index - cursor);
+        console.log('"' + text + '"');
+        this.vars.nodes.push(
+          {node: "TEXT", text: text}
+        );
+      }
+
+      function setCursor() {
+        this.vars.cursor = this.index + 1;
+      }
+
+      var rules = {
+        TEXT: [
+          ["<", "OPEN_TAG", pushText]
+        ],
+        OPEN_TAG: [
+          [">", "TEXT", setCursor]
+        ]
+      };
+
+      var source = "Hello <b>World</b>!";
+
+      var ctx = StateMachine.run(rules, source, {cursor: 0, nodes: []});
+      if (ctx.state == "TEXT") {
+        pushText();
+      }
+console.info("[tlk-state-machine.spec] ctx=...", ctx);
+      console.info("[tlk-state-machine.spec] ctx.vars.nodes=...", ctx.vars.nodes);
+    });
+  });
+
   describe("for C-style comments removing", function() {
     beforeAll(function() {
       var flush = function() {
@@ -92,7 +136,7 @@ describe("State Machine", function() {
             }
           }
           expect(R).toEqual(B);
-        }        
+        }
       };
     });
 
