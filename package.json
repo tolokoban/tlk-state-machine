@@ -11,13 +11,9 @@
     "type": "git",
     "url": "https://github.com/tolokoban/tlk-state-machine.git"
   },
-  "keywords": [
-    "tolokoban",
-    "state",
-    "machine"
-  ],
+  "keywords": ["tolokoban", "state", "machine"],
   "author": "Tolokoban",
-  "license": "ISC",
+  "license": "GPL",
   "bugs": {
     "url": "https://github.com/tolokoban/tlk-state-machine/issues"
   },
