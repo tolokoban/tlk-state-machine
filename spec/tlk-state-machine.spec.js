@@ -63,7 +63,7 @@ describe("State Machine", function() {
 
       var ctx = StateMachine.run(rules, source, {cursor: 0, nodes: []});
       if (ctx.state == "TEXT") {
-        pushText();
+        pushText.call(ctx);
       }
 console.info("[tlk-state-machine.spec] ctx=...", ctx);
       console.info("[tlk-state-machine.spec] ctx.vars.nodes=...", ctx.vars.nodes);
